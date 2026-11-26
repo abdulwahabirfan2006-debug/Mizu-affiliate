@@ -1,0 +1,12 @@
+{
+  "name": "affiliate-board",
+  "version": "1.0.0",
+  "description": "Shopify affiliate dashboard (no external dependencies)",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node scripts/demo.js",
+    "test": "node --test"
+  }
+}
