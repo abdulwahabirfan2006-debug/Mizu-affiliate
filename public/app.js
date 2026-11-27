@@ -28,6 +28,8 @@ const money = (minor, cur = state.settings.currency) =>
 const count = (n) => Number(n || 0).toLocaleString('en-PK');
 const date = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const isAdmin = () => state.user.role === 'admin';
+const brand = () => html`<div class="brand">${state.settings.logo_url ? html`<img class="logo" src="${state.settings.logo_url}" alt="">` : html`<span class="mark"></span>`}${state.settings.store_name}</div>`;
+const rulesList = () => html`<ul class="rules">${state.settings.rules.split('\n').filter((r) => r.trim()).map((r) => html`<li>${r}</li>`)}</ul>`;
 const link = (productId) => `${state.appUrl}/r/${state.user.code}${productId ? `?p=${productId}` : ''}`;
 
 let toastTimer;
@@ -48,7 +50,7 @@ async function copy(value) {
 
 const STATUS = {
   pending: ['wait', '◷', 'Payment baqi'], holding: ['info', '⏳', 'Return period'], approved: ['ok', '✓', 'Approved'],
-  review: ['wait', '!', 'Review mein'], rejected: ['bad', '✕', 'Rejected'], cancelled: ['bad', '✕', 'Cancelled'], refunded: ['off', '↩', 'Refunded'],
+  review: ['wait', '!', 'Review mein'], rejected: ['bad', '✕', 'Commission nahi'], cancelled: ['bad', '✕', 'Cancelled'], refunded: ['off', '↩', 'Refunded'],
   active: ['ok', '✓', 'Active'], blocked: ['bad', '✕', 'Blocked'], synced: ['ok', '✓', 'Shopify par live'],
   manual: ['wait', '!', 'Shopify mein khud banayein'], disabled: ['off', '–', 'Band'], requested: ['wait', '◷', 'Pending'], paid: ['ok', '✓', 'Paid'],
 };
@@ -203,7 +205,11 @@ const pages = {
   async orders() {
     const d = await api('/orders');
     const cols = orderColumns();
-    if (isAdmin()) cols.push(['', (o) => o.status === 'review' && html`<div class="row"><button class="mini" data-act="review" data-id="${o.id}" data-v="approve">Approve</button><button class="danger mini" data-act="review" data-id="${o.id}" data-v="reject">Reject</button></div>`]);
+    if (isAdmin()) cols.push(['', (o) => {
+      if (o.status === 'review') return html`<div class="row"><button class="mini" data-act="review" data-id="${o.id}" data-v="approve">Approve</button><button class="danger mini" data-act="review" data-id="${o.id}" data-v="reject">Reject</button></div>`;
+      if (o.status === 'rejected') return html`<button class="ghost mini" data-act="review" data-id="${o.id}" data-v="approve">Commission bahal karein</button>`;
+      return ['pending', 'holding', 'approved'].includes(o.status) && html`<button class="danger mini" data-act="not-delivered" data-id="${o.id}">Deliver nahi hua</button>`;
+    }]);
     return html`${head(isAdmin() ? 'Sales' : 'Meri sales', 'Shopify orders jo affiliate link ya code se aaye')}
       ${isAdmin() && d.orders.some((o) => o.status === 'review') && html`<div class="notice">"Review mein" ka matlab: khareedar ka email ya phone affiliate wala hi hai. Check kar ke faisla karein.</div>`}
       <section class="panel">${d.orders.length ? table(cols, d.orders) : empty('Abhi koi sale nahi', 'Pehla affiliate order aate hi yahan dikhega.')}</section>`;
@@ -227,6 +233,10 @@ const pages = {
       <section class="panel">${d.payouts.length ? table(cols, d.payouts) : empty('Abhi koi payout nahi', isAdmin() ? 'Affiliate ki request yahan aayegi.' : 'Balance minimum tak pohanchne par request bhejein.')}</section>`;
   },
 
+  async rules() {
+    return html`${head('Rules', 'Program mein shamil har creator ke liye')}<section class="panel">${state.settings.rules ? rulesList() : empty('Abhi koi rule nahi', 'Store owner yahan rules likhega.')}</section>`;
+  },
+
   async settings() {
     const passwordPanel = html`<section class="panel"><header><h2>Password badlein</h2></header><form data-form="password">
       ${field('Purana password', 'current', 'type="password" required autocomplete="current-password"')}
@@ -243,7 +253,9 @@ const pages = {
     const num = (label, key, hint) => field(label, key, `type="number" step="any" min="0" required ${val(s[key])}`, hint);
     return html`${head('Settings', 'Program ke rules aur Shopify connection')}<div class="two">
       <section class="panel"><header><h2>Program</h2></header><form data-form="settings">
-        ${field('Store ka naam', 'store_name', `required ${val(s.store_name)}`)}
+        ${field('Program ka naam', 'store_name', `required maxlength="60" ${val(s.store_name)}`)}
+        ${field('Logo link', 'logo_url', `type="url" ${val(s.logo_url)}`, 'Shopify, Content, Files mein logo upload kar ke us ka link yahan dalein')}
+        <label>Rules<textarea name="rules" rows="7" maxlength="3000">${s.rules}</textarea><small>Har line aik rule. Commission % badlein to yahan bhi badlein.</small></label>
         ${field('Store link', 'storefront_url', `type="url" placeholder="https://yourstore.com" ${val(s.storefront_url)}`, 'Affiliate links customer ko yahan bhejte hain')}
         <div class="fields">${num('Default commission %', 'default_commission')}${field('Currency', 'currency', `required maxlength="3" ${val(s.currency)}`)}
           ${num('Link yaad rakhne ke din', 'cookie_days')}${num('Return period (din)', 'hold_days', 'Payment ke baad itne din commission ruka rahega')}
@@ -265,14 +277,14 @@ const pages = {
 
 const NAV = {
   admin: { overview: 'Overview', products: 'Products', affiliates: 'Affiliates', discounts: 'Discount codes', orders: 'Sales', payouts: 'Payouts', settings: 'Settings' },
-  affiliate: { overview: 'Overview', products: 'Mere links', discounts: 'Discount codes', orders: 'Meri sales', payouts: 'Payouts', settings: 'Settings' },
+  affiliate: { overview: 'Overview', products: 'Mere links', discounts: 'Discount codes', orders: 'Meri sales', payouts: 'Payouts', rules: 'Rules', settings: 'Settings' },
 };
 
 // ---------- Auth screen ----------
 function authScreen() {
   const signup = state.authMode === 'signup';
   document.title = state.settings.store_name || 'Affiliate Board';
-  app.innerHTML = html`<div class="auth"><section class="pitch"><div class="brand"><span class="mark"></span>${state.settings.store_name}</div>
+  app.innerHTML = html`<div class="auth"><section class="pitch">${brand()}
       <div><h1>Share karein. Bechein. Kamayein.</h1><p>Apna link ya discount code share karein. Har sale par ${state.settings.default_commission}% se commission, aur har rupay ka hisaab aap ke dashboard par.</p></div>
       <ol class="flow"><li><span>Pehla qadam</span><b>Join</b></li><li><span>Phir</span><b>Link share</b></li><li><span>Order par</span><b>Commission</b></li><li class="now"><span>Aakhir mein</span><b>Payout</b></li></ol></section>
     <section class="formside"><div><h2>${signup ? 'Affiliate banein' : 'Login'}</h2>
@@ -281,6 +293,8 @@ function authScreen() {
         ${field('Email', 'email', 'type="email" required autocomplete="email"')}
         ${signup && html`${field('Phone', 'phone', 'type="tel" required autocomplete="tel"')}${field('Instagram / TikTok / YouTube link', 'social', 'maxlength="200"')}`}
         ${field('Password', 'password', `type="password" required ${signup ? 'minlength="10" autocomplete="new-password"' : 'autocomplete="current-password"'}`, signup ? 'Kam az kam 10 characters' : '')}
+        ${signup && state.settings.rules && html`<div><h3>Rules</h3>${rulesList()}</div>
+          <label class="agree"><input type="checkbox" name="accept_rules" value="1" required>Main ne rules parh liye hain aur qabool karta/karti hoon</label>`}
         <button>${signup ? 'Application bhejein' : 'Login karein'}</button></form>
       <p class="muted">${signup ? 'Account pehle se hai?' : 'Affiliate banna chahte hain?'} <button class="link" data-act="auth">${signup ? 'Login karein' : 'Apply karein'}</button></p></div></section></div>`.s;
 }
@@ -292,7 +306,7 @@ async function show() {
   const page = location.hash.slice(1) in nav ? location.hash.slice(1) : 'overview';
   const mine = ++renderId;
   if (!$('.shell')) app.innerHTML = '<div class="shell"><aside class="side"></aside><main></main></div>';
-  $('.side').innerHTML = html`<div class="brand"><span class="mark"></span>${state.settings.store_name}</div>
+  $('.side').innerHTML = html`${brand()}
     <nav>${Object.entries(nav).map(([k, l]) => html`<a href="#${k}" ${new Safe(k === page ? 'aria-current="page"' : '')}>${l}</a>`)}</nav>
     <div class="who"><span>${state.user.name}${state.user.code && html`<br>Code: ${state.user.code}`}</span><button class="mini" data-act="logout">Logout</button></div>`.s;
   document.title = `${nav[page]} · ${state.settings.store_name}`;
@@ -366,7 +380,8 @@ const actions = {
     const r = await api(`/discounts/${el.dataset.id}/disable`, 'POST');
     toast(r.manual ? 'Code band hua. Shopify admin mein bhi khud band karein.' : 'Code band ho gaya'); show();
   },
-  review: async (el) => { await api(`/orders/${el.dataset.id}`, 'PUT', { decision: el.dataset.v }); toast(el.dataset.v === 'approve' ? 'Order approve hua' : 'Order reject hua'); show(); },
+  review: async (el) => { await api(`/orders/${el.dataset.id}`, 'PUT', { decision: el.dataset.v }); modal.close(); toast(el.dataset.v === 'approve' ? 'Order approve hua' : 'Commission hata diya gaya'); show(); },
+  'not-delivered': (el) => openModal('Order deliver nahi hua?', html`<p>Is order ka commission khatam ho jayega.</p><div class="row" style="margin-top:16px"><button data-act="review" data-id="${el.dataset.id}" data-v="reject">Haan, commission hata dein</button><button class="ghost" data-act="close">Wapas</button></div>`),
   'request-payout': async () => { await api('/payouts', 'POST'); toast('Payout request bhej di gayi'); show(); },
   payout: (el) => {
     const paid = el.dataset.v === 'paid';

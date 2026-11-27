@@ -19,7 +19,6 @@ const config = loadConfig({
 const db = openDb(dbPath);
 const server = createApp({ config, db });
 
-db.setSetting('store_name', 'Demo Home Store');
 db.setSetting('storefront_url', 'https://example.com');
 
 // Har dafa ek jaisa data

@@ -1,4 +1,4 @@
-# Affiliate Board
+# Mizu Affiliate Program
 
 Shopify store ke liye affiliate dashboard. Admin aur affiliate dono ke alag dashboards.
 Koi `npm install` nahi chahiye. Sirf **Node.js 22.13 ya naya** (nodejs.org se LTS).
@@ -27,7 +27,7 @@ ADMIN_PASSWORD=koi-lamba-mazboot-password
 SHOPIFY_STORE=aap-ka-store.myshopify.com
 ```
 
-Chalayein: `npm start`. Phir login kar ke **Settings** mein store ka naam aur **Store link** (customer wala address) dalein.
+Chalayein: `npm start`. Phir login kar ke **Settings** mein **Store link** `https://www.mizupk.com` aur logo ka link dalein.
 
 ## 3. App ko internet par lagana (zaroori)
 
@@ -41,7 +41,7 @@ Chalayein: `npm start`. Phir login kar ke **Settings** mein store ka naam aur **
 
 Hosting par `.env` wali values environment variables mein dalein:
 `APP_URL=https://aap-ka-address`, `TRUST_PROXY=1` (agar hosting proxy ke peeche chalati hai), aur `DB_PATH` permanent disk par.
-Apna domain use karein (misal `partners.yourstore.com`). Baad mein address badla to purane affiliate links toot jayenge.
+Apna domain use karein (misal `partners.mizupk.com`). Baad mein address badla to purane affiliate links toot jayenge.
 
 ## 4. Shopify connect karna
 
@@ -98,6 +98,7 @@ Discount code se tracking in cases mein bhi chal sakti hai, agar form code ko or
 - Customer ne kisi affiliate ka code lagaya to sale usi ki. Warna aakhri clicked link ki (default 30 din tak).
 - COD: paid mark hone tak "Payment baqi". Us ke baad return period (default 7 din), phir "Available".
 - Cancel par commission khatam. Refund par utni kam.
+- Parcel deliver na ho ya wapas aaye: **Sales** mein "Deliver nahi hua" dabayein. COD order sirf paisay milne ke baad paid mark karein.
 - Khareedar ka email/phone affiliate wala ho to "Review mein", faisla admin ka.
 - Payout app khud paisay **nahi bhejti**. Aap JazzCash/Easypaisa/bank se bhej kar "Paid mark karein".
 - Paid payout ke baad refund aaye to woh raqam agle balance se kat jati hai.

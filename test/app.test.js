@@ -86,7 +86,8 @@ test('signup pending rehta hai, approval ke baad login', async (t) => {
   const s = await setup(); t.after(() => s.server.close());
   const visitor = s.client();
   const body = { name: 'New', email: 'new@t.test', password: 'new-pass-1234', role: 'admin', status: 'active' };
-  assert.equal((await visitor('/api/signup', 'POST', body)).status, 200);
+  assert.equal((await visitor('/api/signup', 'POST', body)).status, 400, 'rules qabool kiye baghair nahi');
+  assert.equal((await visitor('/api/signup', 'POST', { ...body, accept_rules: '1' })).status, 200);
   assert.equal((await visitor('/api/login', 'POST', body)).status, 403);
   const [a] = (await s.admin('/api/affiliates')).data.affiliates;
   assert.equal(a.role, 'affiliate');
@@ -218,4 +219,17 @@ test('payout, self-referral review, refund ke baad payment rukti hai', async (t)
   assert.equal((await s.admin(`/api/payouts/${id}`, 'PUT', { status: 'rejected' })).status, 200);
   const o = (await s.admin('/api/overview?days=7')).data;
   assert.equal(o.series.length, 7);
+});
+
+test('deliver na hone wala order: commission khatam, baad ke webhooks wapas nahi laate', async (t) => {
+  const s = await setup(); t.after(() => s.server.close());
+  const ali = await s.makeAffiliate('ali');
+  await s.admin('/api/settings', 'PUT', { hold_days: 0 });
+  const o = order(12, { note_attributes: fromLink(await s.click(ali)) });
+  await s.hook('orders/create', o);
+  await s.admin('/api/orders/12', 'PUT', { decision: 'reject' });
+  await s.hook('orders/paid', o);
+  assert.equal((await ali.as('/api/orders')).data.orders[0].status, 'rejected');
+  const { balance } = (await ali.as('/api/overview')).data;
+  assert.deepEqual([balance.pending, balance.holding, balance.available], [0, 0, 0]);
 });

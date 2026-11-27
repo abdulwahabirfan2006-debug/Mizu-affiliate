@@ -94,7 +94,15 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
 export const DEFAULT_SETTINGS = {
-  store_name: 'My Store',
+  store_name: 'Mizu Affiliate Program',
+  logo_url: '',
+  rules: [
+    'Commission 10% hai.',
+    'Order deliver na ho, cancel ho ya parcel wapas aaye to commission nahi milega.',
+    'Creators ko bheja gaya product wapas dena hoga.',
+    'Video mein product ki sirf wohi khoobiyan batayein jo us mein waqai hain. Apni taraf se koi khoobi nahi.',
+    'Video mein songs ya music istemal nahi hoga.',
+  ].join('\n'),
   storefront_url: '',
   currency: 'PKR',
   default_commission: 10,

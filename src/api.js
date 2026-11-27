@@ -21,8 +21,8 @@ export function matchRoute(method, path) {
 const found = (row) => row || fail(404, 'Record nahi mila');
 const affiliateOf = (db, id) => found(db.get("SELECT * FROM users WHERE id = ? AND role = 'affiliate'", Number(id)));
 const publicSettings = (db) => {
-  const { store_name, currency, default_commission, cookie_days, hold_days, min_payout } = db.settings();
-  return { store_name, currency, default_commission, cookie_days, hold_days, min_payout };
+  const { store_name, logo_url, rules, currency, default_commission, cookie_days, hold_days, min_payout } = db.settings();
+  return { store_name, logo_url, rules, currency, default_commission, cookie_days, hold_days, min_payout };
 };
 
 // ---------- Auth ----------
@@ -59,6 +59,7 @@ function createAffiliate(db, body, status) {
 
 route('POST', '/api/signup', 'public', ({ db, body, ip }) => {
   rateLimit(`signup:${ip}`, 5, 60 * 60000);
+  if (db.settings().rules && !body.accept_rules) fail(400, 'Apply karne ke liye rules qabool karein');
   createAffiliate(db, body, 'pending');
   return { ok: true };
 });
@@ -313,7 +314,9 @@ route('PUT', '/api/settings', 'admin', ({ db, body }) => {
     else if (key === 'storefront_url') {
       const url = httpUrl(body[key], 'Store link');
       clean[key] = url ? new URL(url).origin : '';
-    } else clean[key] = text(body[key], key, { max: key === 'currency' ? 3 : 60 });
+    } else if (key === 'logo_url') clean[key] = httpUrl(body[key], 'Logo link');
+    else if (key === 'rules') clean[key] = text(body[key], 'Rules', { max: 3000, min: 0 });
+    else clean[key] = text(body[key], key, { max: key === 'currency' ? 3 : 60 });
   }
   if (clean.currency) {
     clean.currency = clean.currency.toUpperCase();
