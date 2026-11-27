@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { loadConfig } from '../src/config.js';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/app.js';
+import { createShopify } from '../src/shopify.js';
 
 const SECRET = 'test-secret';
 const STORE = 'test-store.myshopify.com';
@@ -24,6 +25,7 @@ async function setup() {
     SHOPIFY_STORE: STORE, SHOPIFY_CLIENT_ID: 'id', SHOPIFY_CLIENT_SECRET: SECRET, SHOPIFY_ACCESS_TOKEN: '', SHOPIFY_WEBHOOK_SECRET: '',
   });
   const db = openDb(':memory:');
+  db.setSetting('storefront_url', `https://${STORE}`);
   const server = createApp({ config, db, fetchImpl: fakeShopify });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -233,3 +235,37 @@ test('deliver na hone wala order: commission khatam, baad ke webhooks wapas nahi
   const { balance } = (await ali.as('/api/overview')).data;
   assert.deepEqual([balance.pending, balance.holding, balance.available], [0, 0, 0]);
 });
+
+test('API keys ke baghair products store ki public list se aate hain', async (t) => {
+  const db = openDb(':memory:');
+  t.after(() => db.close());
+  const asked = [];
+  const product = (id, extra = {}) => ({ id, title: `Case ${id}`, handle: `case-${id}`, variants: [{ price: '799.00' }, { price: '599.00' }], images: [{ src: `https://cdn.shopify.com/${id}.jpg` }], ...extra });
+  const fetchImpl = async (url) => {
+    asked.push(url);
+    const first = url.endsWith('page=1');
+    return Response.json({ products: first ? Array.from({ length: 250 }, (_, i) => product(i + 1)) : [product(999, { images: [], variants: [] })] });
+  };
+  const shopify = createShopify(loadConfig({ SHOPIFY_STORE: '', SHOPIFY_CLIENT_ID: '', SHOPIFY_CLIENT_SECRET: '', SHOPIFY_ACCESS_TOKEN: '' }), fetchImpl);
+  assert.equal(await shopify.importProducts(db), 251);
+  assert.equal(asked[0], 'https://www.mizupk.com/products.json?limit=250&page=1');
+  assert.equal(asked.length, 2);
+  assert.equal(db.get("SELECT price FROM products WHERE shopify_id = '1'").price, 59900);
+  db.run("UPDATE products SET commission_rate = 15, active = 0 WHERE shopify_id = '1'");
+  await shopify.importProducts(db);
+  assert.equal(db.get('SELECT COUNT(*) AS n FROM products').n, 251);
+  assert.deepEqual({ ...db.get("SELECT commission_rate, active FROM products WHERE shopify_id = '1'") }, { commission_rate: 15, active: 0 });
+
+  const broken = createShopify(loadConfig({ SHOPIFY_STORE: '', SHOPIFY_ACCESS_TOKEN: '' }), async () => new Response('<html>', { status: 200 }));
+  await assert.rejects(broken.importProducts(db), /products nahi mile/);
+});
+
+test('khaali logo aur store link default par rehte hain', (t) => {
+  const db = openDb(':memory:');
+  t.after(() => db.close());
+  db.setSetting('logo_url', '');
+  db.setSetting('storefront_url', '');
+  assert.equal(db.settings().storefront_url, 'https://www.mizupk.com');
+  assert.match(db.settings().logo_url, /^https:\/\/cdn\.shopify\.com\//);
+});
+

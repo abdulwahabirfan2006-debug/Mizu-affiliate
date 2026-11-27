@@ -44,8 +44,7 @@ export function createApp({ config, db, fetchImpl }) {
   /** Affiliate link: click record karo aur store par bhejo */
   function click(req, res, code, url) {
     const settings = db.settings();
-    const base = settings.storefront_url || (config.shopify.store ? `https://${config.shopify.store}` : '');
-    if (!base) return send(res, 503, 'Store ka link abhi set nahi hua. Admin Settings mein "Store link" dalein.', 'text/plain; charset=utf-8');
+    const base = settings.storefront_url;
     const product = db.get('SELECT * FROM products WHERE id = ? AND active = 1', Number(url.searchParams.get('p')) || 0);
     const affiliate = db.get("SELECT id, code FROM users WHERE code = ? AND status = 'active'", code.toUpperCase());
     let target = product ? `/products/${encodeURIComponent(product.handle)}` : '/';

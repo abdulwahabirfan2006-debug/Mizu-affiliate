@@ -30,6 +30,8 @@ const date = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric'
 const isAdmin = () => state.user.role === 'admin';
 const brand = () => html`<div class="brand">${state.settings.logo_url ? html`<img class="logo" src="${state.settings.logo_url}" alt="">` : html`<span class="mark"></span>`}${state.settings.store_name}</div>`;
 const rulesList = () => html`<ul class="rules">${state.settings.rules.split('\n').filter((r) => r.trim()).map((r) => html`<li>${r}</li>`)}</ul>`;
+// Shopify ki bari tasveer chhoti mangwao taake mobile par jaldi khule
+const thumbUrl = (url) => (url.includes('cdn.shopify.com') ? `${url}${url.includes('?') ? '&' : '?'}width=600` : url);
 const link = (productId) => `${state.appUrl}/r/${state.user.code}${productId ? `?p=${productId}` : ''}`;
 
 let toastTimer;
@@ -49,8 +51,8 @@ async function copy(value) {
 }
 
 const STATUS = {
-  pending: ['wait', '◷', 'Payment baqi'], holding: ['info', '⏳', 'Return period'], approved: ['ok', '✓', 'Approved'],
-  review: ['wait', '!', 'Review mein'], rejected: ['bad', '✕', 'Commission nahi'], cancelled: ['bad', '✕', 'Cancelled'], refunded: ['off', '↩', 'Refunded'],
+  pending: ['wait', '◷', 'Payment baqi'], holding: ['info', '◐', 'Return period'], approved: ['ok', '✓', 'Approved'],
+  review: ['wait', '!', 'Review mein'], rejected: ['bad', '✕', 'Commission nahi'], cancelled: ['bad', '✕', 'Cancelled'], refunded: ['off', '↺', 'Refunded'],
   active: ['ok', '✓', 'Active'], blocked: ['bad', '✕', 'Blocked'], synced: ['ok', '✓', 'Shopify par live'],
   manual: ['wait', '!', 'Shopify mein khud banayein'], disabled: ['off', '–', 'Band'], requested: ['wait', '◷', 'Pending'], paid: ['ok', '✓', 'Paid'],
 };
@@ -146,7 +148,7 @@ const pages = {
     ]}</div>`;
     if (!isAdmin()) {
       return html`${head(`Salam, ${state.user.name.split(' ')[0]}`, 'Aap ki kamai aur performance', period())}
-        ${wallet(d.balance, html`<div class="row"><button class="gold" data-act="copy" data-v="${link()}">Mera store link copy karein</button></div>`)}
+        ${wallet(d.balance, html`<div class="row"><button class="invert" data-act="copy" data-v="${link()}">Mera store link copy karein</button></div>`)}
         ${stats}${chartPanel(d.series)}`;
     }
     const todo = [['affiliates', d.todo.affiliates, 'affiliate approval ke intezar mein'], ['payouts', d.todo.payouts, 'payout request pending'], ['orders', d.todo.reviews, 'order review karne wale']].filter((x) => x[1]);
@@ -166,7 +168,7 @@ const pages = {
     return html`${head(isAdmin() ? 'Products' : 'Mere links', isAdmin() ? 'Jo products affiliates promote kar sakte hain' : 'Link copy karein, share karein, har sale par commission lein', isAdmin() ? add : '')}
       ${d.products.length ? html`<div class="products">${d.products.map((p) => {
         const rate = p.commission_rate ?? d.myRate;
-        return html`<article class="product"><div class="thumb">${p.title.slice(0, 1).toUpperCase()}${p.image_url && html`<img src="${p.image_url}" alt="" loading="lazy">`}</div>
+        return html`<article class="product"><div class="thumb">${p.title.slice(0, 1).toUpperCase()}${p.image_url && html`<img src="${thumbUrl(p.image_url)}" alt="" loading="lazy">`}</div>
           <div class="body"><div><h3>${p.title}</h3><div class="muted small">${count(p.clicks)} clicks${!p.active && ' (chhupa hua)'}</div></div>
             <div class="price"><b>${money(p.price)}</b>${rate != null ? html`<span class="chip ok">${rate}% commission</span>` : html`<span class="chip off">Default rate</span>`}</div>
             ${isAdmin() ? html`<div class="row"><button class="ghost mini" data-act="product" data-id="${p.id}">Edit</button><button class="danger mini" data-act="delete-product" data-id="${p.id}">Delete</button></div>`
@@ -229,7 +231,7 @@ const pages = {
     const b = d.balance;
     const ready = b && b.available > 0 && b.available >= state.settings.min_payout * 100 && !b.requested;
     return html`${head('Payouts', isAdmin() ? 'Pehle paisay bhejein (JazzCash, Easypaisa, bank), phir paid mark karein' : `Kam az kam payout: ${money(state.settings.min_payout * 100)}`)}
-      ${b && wallet(b, html`<button class="gold" data-act="request-payout" ${new Safe(ready ? '' : 'disabled')}>Payout request karein</button>`)}
+      ${b && wallet(b, html`<button class="invert" data-act="request-payout" ${new Safe(ready ? '' : 'disabled')}>Payout request karein</button>`)}
       <section class="panel">${d.payouts.length ? table(cols, d.payouts) : empty('Abhi koi payout nahi', isAdmin() ? 'Affiliate ki request yahan aayegi.' : 'Balance minimum tak pohanchne par request bhejein.')}</section>`;
   },
 
@@ -254,9 +256,9 @@ const pages = {
     return html`${head('Settings', 'Program ke rules aur Shopify connection')}<div class="two">
       <section class="panel"><header><h2>Program</h2></header><form data-form="settings">
         ${field('Program ka naam', 'store_name', `required maxlength="60" ${val(s.store_name)}`)}
-        ${field('Logo link', 'logo_url', `type="url" ${val(s.logo_url)}`, 'Shopify, Content, Files mein logo upload kar ke us ka link yahan dalein')}
+        ${field('Logo link', 'logo_url', `type="url" ${val(s.logo_url)}`, 'Khaali chhorein to website wala logo lagega')}
         <label>Rules<textarea name="rules" rows="7" maxlength="3000">${s.rules}</textarea><small>Har line aik rule. Commission % badlein to yahan bhi badlein.</small></label>
-        ${field('Store link', 'storefront_url', `type="url" placeholder="https://yourstore.com" ${val(s.storefront_url)}`, 'Affiliate links customer ko yahan bhejte hain')}
+        ${field('Store link', 'storefront_url', `type="url" placeholder="https://yourstore.com" ${val(s.storefront_url)}`, 'Affiliate links customer ko yahan bhejte hain. Products bhi yahin se import hote hain')}
         <div class="fields">${num('Default commission %', 'default_commission')}${field('Currency', 'currency', `required maxlength="3" ${val(s.currency)}`)}
           ${num('Link yaad rakhne ke din', 'cookie_days')}${num('Return period (din)', 'hold_days', 'Payment ke baad itne din commission ruka rahega')}
           ${num('Minimum payout', 'min_payout')}${num('Timezone (UTC se minute)', 'tz_offset', 'Pakistan = 300')}</div>
@@ -265,8 +267,8 @@ const pages = {
       <div style="display:grid;gap:22px;min-width:0">
       <section class="panel"><header><h2>Shopify connection</h2>${sh.connected ? html`<span class="chip ok">✓ API keys lagi hain</span>` : html`<span class="chip wait">! Connect nahi</span>`}</header>
         <div style="display:grid;gap:14px">
-          <p class="muted">${sh.store || 'Store domain .env file mein SHOPIFY_STORE par dalein.'}</p>
-          <div><h3>1. Order webhooks</h3><p class="small muted">${sh.webhookSecret ? 'Signing secret set hai.' : 'Signing secret abhi set nahi, .env dekhein.'}</p></div>
+          <p class="muted">${sh.store || 'Products abhi store link se import hote hain. Sales track karne ke liye Railway ke Variables mein Shopify ki keys dalein.'}</p>
+          <div><h3>1. Order webhooks</h3><p class="small muted">${sh.webhookSecret ? 'Signing secret set hai.' : 'Signing secret abhi set nahi (Railway ke Variables).'}</p></div>
           <div class="copybox"><code>${sh.webhookUrl}</code><button class="ghost mini" data-act="copy" data-v="${sh.webhookUrl}">Copy</button></div>
           <div><button data-act="webhooks" ${new Safe(sh.connected && sh.https ? '' : 'disabled')}>Webhooks khud lagayein</button>${!sh.https && html`<p class="small muted" style="margin-top:8px">Is ke liye app ka https address chahiye.</p>`}</div>
           <div><h3>2. Theme mein tracking code</h3><p class="small muted">Online Store, Themes, Edit code, theme.liquid mein &lt;/body&gt; se pehle paste karein.</p></div>
@@ -283,7 +285,7 @@ const NAV = {
 // ---------- Auth screen ----------
 function authScreen() {
   const signup = state.authMode === 'signup';
-  document.title = state.settings.store_name || 'Affiliate Board';
+  document.title = state.settings.store_name || 'Mizu Affiliate Program';
   app.innerHTML = html`<div class="auth"><section class="pitch">${brand()}
       <div><h1>Share karein. Bechein. Kamayein.</h1><p>Apna link ya discount code share karein. Har sale par ${state.settings.default_commission}% se commission, aur har rupay ka hisaab aap ke dashboard par.</p></div>
       <ol class="flow"><li><span>Pehla qadam</span><b>Join</b></li><li><span>Phir</span><b>Link share</b></li><li><span>Order par</span><b>Commission</b></li><li class="now"><span>Aakhir mein</span><b>Payout</b></li></ol></section>

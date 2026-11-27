@@ -27,7 +27,7 @@ ADMIN_PASSWORD=koi-lamba-mazboot-password
 SHOPIFY_STORE=aap-ka-store.myshopify.com
 ```
 
-Chalayein: `npm start`. Phir login kar ke **Settings** mein **Store link** `https://www.mizupk.com` aur logo ka link dalein.
+Chalayein: `npm start`. Store link (`https://www.mizupk.com`) aur logo pehle se lage hain. Pehli dafa app store ke live products khud import kar leti hai, is ke liye Shopify keys nahi chahiye. Naye products ke liye **Products, Shopify se import karein** dabayein.
 
 ## 3. App ko internet par lagana (zaroori)
 

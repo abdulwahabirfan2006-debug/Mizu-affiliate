@@ -12,6 +12,22 @@ export function verifyWebhook(config, rawBody, header) {
   });
 }
 
+/** Naya product add karo, ya pehle wale ko update (commission aur chhupa/dikhna admin ka rehta hai) */
+function saveProduct(db, { id, title, handle, price, image }) {
+  // Haath se add kiya wohi product ho to usay jor do, duplicate na bane
+  db.run(
+    `UPDATE products SET shopify_id = ? WHERE id = (SELECT id FROM products WHERE shopify_id IS NULL AND handle = ? LIMIT 1)
+       AND NOT EXISTS (SELECT 1 FROM products WHERE shopify_id = ?)`,
+    id, handle, id,
+  );
+  db.run(
+    `INSERT INTO products (shopify_id, title, handle, price, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(shopify_id) DO UPDATE SET title = excluded.title, handle = excluded.handle,
+       price = excluded.price, image_url = excluded.image_url`,
+    id, title, handle, toMinor(price), image, now(),
+  );
+}
+
 export function createShopify(config, fetchImpl = fetch) {
   const s = config.shopify;
   const connected = Boolean(s.store && (s.accessToken || (s.clientId && s.clientSecret)));
@@ -36,7 +52,7 @@ export function createShopify(config, fetchImpl = fetch) {
   }
 
   async function graphql(query, variables = {}) {
-    if (!connected) fail(400, 'Shopify abhi connect nahi hai. .env file mein keys dalein.');
+    if (!connected) fail(400, 'Shopify abhi connect nahi hai. Railway ke Variables mein keys dalein.');
     let res;
     try {
       res = await fetchImpl(`https://${s.store}/admin/api/${s.apiVersion}/graphql.json`, {
@@ -55,6 +71,63 @@ export function createShopify(config, fetchImpl = fetch) {
       fail(502, `Shopify error: ${msg}`);
     }
     return body.data;
+  }
+
+  async function importFromAdmin(db) {
+    let after = null;
+    let count = 0;
+    do {
+      const data = await graphql(
+        `query Products($after: String) {
+          products(first: 100, after: $after, query: "status:active") {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              legacyResourceId title handle
+              featuredMedia { preview { image { url } } }
+              priceRangeV2 { minVariantPrice { amount } }
+            }
+          }
+        }`,
+        { after },
+      );
+      for (const p of data.products.nodes) {
+        saveProduct(db, {
+          id: String(p.legacyResourceId), title: p.title, handle: p.handle,
+          price: p.priceRangeV2.minVariantPrice.amount, image: p.featuredMedia?.preview?.image?.url || '',
+        });
+        count++;
+      }
+      after = data.products.pageInfo.hasNextPage ? data.products.pageInfo.endCursor : null;
+    } while (after);
+    return count;
+  }
+
+  /** API keys ke baghair: store ki public product list (sirf live products) */
+  async function importFromStorefront(db) {
+    const base = db.settings().storefront_url;
+    if (!base) fail(400, 'Pehle Settings mein "Store link" dalein.');
+    let count = 0;
+    for (let page = 1; page <= 40; page++) {
+      let list;
+      try {
+        const res = await fetchImpl(`${base}/products.json?limit=250&page=${page}`, {
+          headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000),
+        });
+        if (res.ok) list = (await res.json()).products;
+      } catch { /* neeche error */ }
+      if (!Array.isArray(list)) fail(502, 'Store se products nahi mile. Store link check karein, aur store par password na laga ho.');
+      for (const p of list) {
+        const prices = (p.variants || []).map((v) => Number(v.price)).filter(Number.isFinite);
+        const image = String(p.images?.[0]?.src || '');
+        saveProduct(db, {
+          id: String(p.id), title: String(p.title), handle: String(p.handle),
+          price: prices.length ? Math.min(...prices) : 0, image: image.startsWith('https://') ? image : '',
+        });
+        count++;
+      }
+      if (list.length < 250) break;
+    }
+    return count;
   }
 
   const userErrors = (list) => { if (list?.length) fail(400, `Shopify: ${list.map((e) => e.message).join('; ')}`); };
@@ -91,43 +164,7 @@ export function createShopify(config, fetchImpl = fetch) {
       userErrors(data.discountCodeDeactivate.userErrors);
     },
 
-    async importProducts(db) {
-      let after = null;
-      let count = 0;
-      do {
-        const data = await graphql(
-          `query Products($after: String) {
-            products(first: 100, after: $after, query: "status:active") {
-              pageInfo { hasNextPage endCursor }
-              nodes {
-                legacyResourceId title handle
-                featuredMedia { preview { image { url } } }
-                priceRangeV2 { minVariantPrice { amount } }
-              }
-            }
-          }`,
-          { after },
-        );
-        for (const p of data.products.nodes) {
-          // Haath se add kiya wohi product ho to usay jor do, duplicate na bane
-          db.run(
-            `UPDATE products SET shopify_id = ? WHERE id = (SELECT id FROM products WHERE shopify_id IS NULL AND handle = ? LIMIT 1)
-               AND NOT EXISTS (SELECT 1 FROM products WHERE shopify_id = ?)`,
-            String(p.legacyResourceId), p.handle, String(p.legacyResourceId),
-          );
-          db.run(
-            `INSERT INTO products (shopify_id, title, handle, price, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT(shopify_id) DO UPDATE SET title = excluded.title, handle = excluded.handle,
-               price = excluded.price, image_url = excluded.image_url`,
-            String(p.legacyResourceId), p.title, p.handle, toMinor(p.priceRangeV2.minVariantPrice.amount),
-            p.featuredMedia?.preview?.image?.url || '', now(),
-          );
-          count++;
-        }
-        after = data.products.pageInfo.hasNextPage ? data.products.pageInfo.endCursor : null;
-      } while (after);
-      return count;
-    },
+    importProducts: (db) => (connected ? importFromAdmin(db) : importFromStorefront(db)),
 
     async registerWebhooks(uri) {
       const results = [];

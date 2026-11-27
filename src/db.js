@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 export const DEFAULT_SETTINGS = {
   store_name: 'Mizu Affiliate Program',
-  logo_url: '',
+  logo_url: 'https://cdn.shopify.com/s/files/1/0998/8236/9316/files/WhatsApp_Image_2025-11-14_at_08.16.20_6796405b_9c683f4e-9120-45cf-8ace-00010b1a64ba.png?v=1787073195',
   rules: [
     'Commission 10% hai.',
     'Order deliver na ho, cancel ho ya parcel wapas aaye to commission nahi milega.',
@@ -103,7 +103,7 @@ export const DEFAULT_SETTINGS = {
     'Video mein product ki sirf wohi khoobiyan batayein jo us mein waqai hain. Apni taraf se koi khoobi nahi.',
     'Video mein songs ya music istemal nahi hoga.',
   ].join('\n'),
-  storefront_url: '',
+  storefront_url: 'https://www.mizupk.com',
   currency: 'PKR',
   default_commission: 10,
   cookie_days: 30,
@@ -112,6 +112,9 @@ export const DEFAULT_SETTINGS = {
   tz_offset: 300,
   auto_apply_discount: 1,
 };
+
+// In ko khaali chhorne ka matlab: upar wali default value
+const KEEP_DEFAULT_IF_EMPTY = ['logo_url', 'storefront_url'];
 
 export function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -126,6 +129,7 @@ export function openDb(file) {
     settings() {
       const out = { ...DEFAULT_SETTINGS };
       for (const r of db.all('SELECT key, value FROM settings')) {
+        if (r.value === '' && KEEP_DEFAULT_IF_EMPTY.includes(r.key)) continue;
         if (r.key in DEFAULT_SETTINGS) out[r.key] = typeof DEFAULT_SETTINGS[r.key] === 'number' ? Number(r.value) : r.value;
       }
       return out;
