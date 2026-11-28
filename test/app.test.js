@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { loadConfig } from '../src/config.js';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/app.js';
-import { createShopify } from '../src/shopify.js';
+import { createShopify, connectOnStart } from '../src/shopify.js';
 
 const SECRET = 'test-secret';
 const STORE = 'test-store.myshopify.com';
@@ -267,5 +267,30 @@ test('khaali logo aur store link default par rehte hain', (t) => {
   db.setSetting('storefront_url', '');
   assert.equal(db.settings().storefront_url, 'https://www.mizupk.com');
   assert.match(db.settings().logo_url, /^https:\/\/cdn\.shopify\.com\//);
+});
+
+test('start par scopes check hote hain aur webhooks khud lagte hain', async () => {
+  const hooks = [];
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/access_token')) return Response.json({ access_token: 't', expires_in: 86399 });
+    const { query, variables } = JSON.parse(options.body);
+    if (query.includes('currentAppInstallation')) {
+      return Response.json({ data: { currentAppInstallation: { accessScopes: [{ handle: 'write_products' }, { handle: 'write_discounts' }] } } });
+    }
+    hooks.push(variables);
+    const taken = variables.topic === 'ORDERS_PAID';
+    return Response.json({ data: { webhookSubscriptionCreate: { webhookSubscription: taken ? null : { id: '1' }, userErrors: taken ? [{ message: 'Address for this topic has already been taken' }] : [] } } });
+  };
+  const config = loadConfig({ APP_URL: 'https://app.example', SHOPIFY_STORE: STORE, SHOPIFY_CLIENT_ID: 'id', SHOPIFY_CLIENT_SECRET: SECRET, SHOPIFY_ACCESS_TOKEN: '' });
+  const lines = [];
+  await connectOnStart(config, createShopify(config, fetchImpl), (l) => lines.push(l));
+  assert.match(lines[0], /scopes nahi mile: read_orders$/);
+  assert.equal(hooks.length, 4);
+  assert.equal(hooks[0].webhookSubscription.uri, 'https://app.example/webhooks/shopify');
+  assert.equal(lines.filter((l) => / OK /.test(l)).length, 4);
+
+  const failing = [];
+  await connectOnStart(config, createShopify(config, async () => new Response('{}', { status: 401 })), (l) => failing.push(l));
+  assert.match(failing[0], /Shopify connect nahi ho saka: Shopify login fail \(401\)/);
 });
 

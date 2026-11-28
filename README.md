@@ -52,7 +52,7 @@ Apna domain use karein (misal `partners.mizupk.com`). Baad mein address badla to
 3. Access requests mein **Protected customer data** enable karein (email aur phone, apni hi link se khareedari pakarne ke liye).
 4. App apne store par install karein. App aur store **aik hi organization** mein hone chahiye.
 5. App Settings se **Client ID** aur **Client secret** `.env` mein `SHOPIFY_CLIENT_ID` aur `SHOPIFY_CLIENT_SECRET` par dalein. App restart karein.
-6. Dashboard: **Settings, Webhooks khud lagayein**.
+6. Webhooks app start hote hi khud lag jate hain (logs mein `Webhook ... OK`). Dobara lagane ke liye: **Settings, Webhooks khud lagayein**.
 7. Dashboard: **Products, Shopify se import karein**.
 
 Guide: https://shopify.dev/docs/apps/build/authentication-authorization/client-credentials-grant

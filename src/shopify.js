@@ -3,6 +3,22 @@ import crypto from 'node:crypto';
 import { fail, toMinor, now } from './util.js';
 
 export const WEBHOOK_TOPICS = ['ORDERS_CREATE', 'ORDERS_PAID', 'ORDERS_CANCELLED', 'REFUNDS_CREATE'];
+export const REQUIRED_SCOPES = ['read_products', 'read_orders', 'write_discounts'];
+
+/** App start par: keys aur permissions check karo, webhooks khud lagao, aur nateeja log mein likho */
+export async function connectOnStart(config, shopify, log = console.log) {
+  if (!shopify.connected) return log('Shopify keys nahi lagin: sales tracking band hai.');
+  try {
+    const missing = await shopify.missingScopes();
+    log(missing.length ? `Shopify login OK, magar yeh scopes nahi mile: ${missing.join(', ')}` : 'Shopify login OK, saare scopes mil gaye.');
+    if (!config.appUrl.startsWith('https://')) return log('Webhooks ke liye APP_URL https wala hona chahiye.');
+    for (const r of await shopify.registerWebhooks(`${config.appUrl}/webhooks/shopify`)) {
+      log(`Webhook ${r.topic}: ${r.ok ? 'OK' : 'FAIL'} (${r.message})`);
+    }
+  } catch (e) {
+    log(`Shopify connect nahi ho saka: ${e.message}`);
+  }
+}
 
 export function verifyWebhook(config, rawBody, header) {
   const given = Buffer.from(String(header || ''), 'base64');
@@ -162,6 +178,13 @@ export function createShopify(config, fetchImpl = fetch) {
         { id },
       );
       userErrors(data.discountCodeDeactivate.userErrors);
+    },
+
+    async missingScopes() {
+      const data = await graphql('query { currentAppInstallation { accessScopes { handle } } }');
+      const have = new Set(data.currentAppInstallation.accessScopes.map((s) => s.handle));
+      // write_ scope mein read_ shamil hota hai
+      return REQUIRED_SCOPES.filter((s) => !have.has(s) && !have.has(s.replace(/^read_/, 'write_')));
     },
 
     importProducts: (db) => (connected ? importFromAdmin(db) : importFromStorefront(db)),

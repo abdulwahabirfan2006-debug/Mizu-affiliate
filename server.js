@@ -1,7 +1,7 @@
 import { loadConfig } from './src/config.js';
 import { openDb } from './src/db.js';
 import { createApp } from './src/app.js';
-import { createShopify } from './src/shopify.js';
+import { createShopify, connectOnStart } from './src/shopify.js';
 
 /** Pehli dafa products khud le aao, taake dashboard khaali na ho */
 async function firstImport(config, db) {
@@ -22,6 +22,7 @@ try {
   server.listen(config.port, () => {
     console.log(`Mizu Affiliate Program chal raha hai: ${config.appUrl}`);
     firstImport(config, db);
+    connectOnStart(config, createShopify(config));
   });
 } catch (e) {
   console.error(`Start nahi ho saka: ${e.message}`);
