@@ -294,3 +294,15 @@ test('start par scopes check hote hain aur webhooks khud lagte hain', async () =
   assert.match(failing[0], /Shopify connect nahi ho saka: Shopify login fail \(401\)/);
 });
 
+test('robots.txt aur sitemap Google ke liye', async (t) => {
+  const { server, client } = await setup();
+  t.after(() => server.close());
+  const robots = await client()('/robots.txt');
+  assert.equal(robots.status, 200);
+  assert.match(robots.data, /Disallow: \/r\//);
+  assert.doesNotMatch(robots.data, /Disallow: \/api/);
+  assert.match(robots.data, /Sitemap: http:\/\/localhost:3999\/sitemap\.xml/);
+  const map = await client()('/sitemap.xml');
+  assert.equal(map.status, 200);
+  assert.match(map.data, /<loc>http:\/\/localhost:3999\/<\/loc>/);
+});

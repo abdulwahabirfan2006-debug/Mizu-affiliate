@@ -96,6 +96,14 @@ export function createApp({ config, db, fetchImpl }) {
       return send(res, 200, js, 'text/javascript; charset=utf-8', { 'Cache-Control': 'public, max-age=300' });
     }
 
+    // Google ke liye: affiliate links crawl na hon, /api/ khula rahe kyunke page usi se banta hai
+    if (p === '/robots.txt' && req.method === 'GET') {
+      return send(res, 200, `User-agent: *\nDisallow: /r/\n\nSitemap: ${config.appUrl}/sitemap.xml\n`, 'text/plain; charset=utf-8');
+    }
+    if (p === '/sitemap.xml' && req.method === 'GET') {
+      return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${config.appUrl}/</loc></url></urlset>\n`, 'application/xml; charset=utf-8');
+    }
+
     if (STATIC[p] && req.method === 'GET') {
       const [file, type] = STATIC[p];
       return send(res, 200, fs.readFileSync(path.join(ROOT, 'public', file)), type, {

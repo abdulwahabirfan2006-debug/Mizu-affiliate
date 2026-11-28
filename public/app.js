@@ -303,7 +303,10 @@ function authScreen() {
 
 let renderId = 0;
 async function show() {
-  if (!state.user) return authScreen();
+  if (!state.user) {
+    if (location.hash === '#apply') state.authMode = 'signup'; // website ka "Creator banein" link
+    return authScreen();
+  }
   const nav = NAV[state.user.role];
   const page = location.hash.slice(1) in nav ? location.hash.slice(1) : 'overview';
   const mine = ++renderId;
