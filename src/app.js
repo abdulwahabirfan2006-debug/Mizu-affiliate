@@ -12,6 +12,7 @@ const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.css': ['app.css', 'text/css; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
 };
 const BOTS = /(?<!cu)bot|crawl|spider|slurp|facebookexternalhit|^whatsapp\/|link.?preview|headless|curl\/|wget|python-requests/i;
 
@@ -106,7 +107,9 @@ export function createApp({ config, db, fetchImpl }) {
 
     if (STATIC[p] && req.method === 'GET') {
       const [file, type] = STATIC[p];
-      return send(res, 200, fs.readFileSync(path.join(ROOT, 'public', file)), type, {
+      let content = fs.readFileSync(path.join(ROOT, 'public', file));
+      if (file === 'index.html') content = content.toString('utf8').replaceAll('__APP_URL__', config.appUrl);
+      return send(res, 200, content, type, {
         'Content-Security-Policy': "default-src 'self'; img-src 'self' https: http: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         'Referrer-Policy': 'same-origin',
       });

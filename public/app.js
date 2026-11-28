@@ -283,11 +283,12 @@ const NAV = {
 };
 
 // ---------- Auth screen ----------
+const PUBLIC_TITLE = document.title; // Google isi naam se dikhata hai (index.html)
 function authScreen() {
   const signup = state.authMode === 'signup';
-  document.title = state.settings.store_name || 'Mizu Affiliate Program';
+  document.title = PUBLIC_TITLE;
   app.innerHTML = html`<div class="auth"><section class="pitch">${brand()}
-      <div><h1>Share karein. Bechein. Kamayein.</h1><p>Apna link ya discount code share karein. Har sale par ${state.settings.default_commission}% se commission, aur har rupay ka hisaab aap ke dashboard par.</p></div>
+      <div><h1>Share karein. Bechein. Kamayein.</h1><p>Apna link ya discount code share karein. Har sale par ${state.settings.default_commission}% se commission, aur har rupay ka hisaab aap ke dashboard par.</p><p>Ye <a href="https://www.mizupk.com" target="_blank" rel="noopener">Mizu (mizupk.com)</a> ka affiliate program hai, Pakistan ke creators ke liye.</p></div>
       <ol class="flow"><li><span>Pehla qadam</span><b>Join</b></li><li><span>Phir</span><b>Link share</b></li><li><span>Order par</span><b>Commission</b></li><li class="now"><span>Aakhir mein</span><b>Payout</b></li></ol></section>
     <section class="formside"><div><h2>${signup ? 'Affiliate banein' : 'Login'}</h2>
       <form data-form="${signup ? 'signup' : 'login'}">

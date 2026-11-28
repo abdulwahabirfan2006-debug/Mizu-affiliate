@@ -306,3 +306,16 @@ test('robots.txt aur sitemap Google ke liye', async (t) => {
   assert.equal(map.status, 200);
   assert.match(map.data, /<loc>http:\/\/localhost:3999\/<\/loc>/);
 });
+
+test('home page par Google ka title, canonical aur favicon', async (t) => {
+  const { server, client } = await setup();
+  t.after(() => server.close());
+  const home = await client()('/');
+  assert.match(home.data, /<title>Mizu Affiliate Program Pakistan \| mizupk<\/title>/);
+  assert.match(home.data, /rel="canonical" href="http:\/\/localhost:3999\/"/);
+  assert.doesNotMatch(home.data, /__APP_URL__/);
+  assert.match(home.data, /google-site-verification/);
+  const icon = await client()('/favicon.svg');
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get('content-type'), 'image/svg+xml');
+});
